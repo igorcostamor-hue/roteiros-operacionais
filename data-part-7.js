@@ -1,0 +1,1 @@
+window.__ROTEIROS_PARTS=window.__ROTEIROS_PARTS||[];window.__ROTEIROS_PARTS.push("oducts\":[]},{\"id\":\"marinha\",\"name\":\"MARINHA\",\"status\":\"empty\",\"products\":[]},{\"id\":\"aeronautica\",\"name\":\"AERONÁUTICA\",\"status\":\"empty\",\"products\":[]},{\"id\":\"exercito\",\"name\":\"EXÉRCITO\",\"status\":\"empty\",\"products\":[]}]};");
