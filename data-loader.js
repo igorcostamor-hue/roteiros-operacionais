@@ -1,0 +1,1 @@
+eval((window.__ROTEIROS_PARTS||[]).join(""));delete window.__ROTEIROS_PARTS;
