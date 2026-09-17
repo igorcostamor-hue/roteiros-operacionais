@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light" />
+  <title>Roteiros Operacionais</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <button class="icon-button mobile-only" id="menuButton" aria-label="Abrir menu" title="Abrir menu">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="brand-wrap">
+        <div class="brand-mark" aria-hidden="true">RO</div>
+        <div>
+          <div class="brand-title">Roteiros Operacionais</div>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <div class="search-wrap">
+          <span class="search-icon">⌕</span>
+          <input id="globalSearch" type="search" placeholder="Buscar regra, banco, produto..." autocomplete="off" />
+          <kbd>Ctrl K</kbd>
+        </div>
+      </div>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-section-label">Convênios</div>
+        <nav id="agreementNav" class="agreement-nav"></nav>
+        <div class="sidebar-divider"></div>
+        <div id="productNavArea"></div>
+      </aside>
+
+      <button class="sidebar-scrim" id="sidebarScrim" aria-label="Fechar menu"></button>
+
+      <main class="main-content">
+        <div id="searchResults" class="search-results hidden"></div>
+        <div id="content"></div>
+      </main>
+    </div>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
