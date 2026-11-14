@@ -153,11 +153,12 @@
     return 'i';
   }
 
-  function makeRuleCard(section, extraClass=''){
+  function makeRuleCard(section, extraClass='', hideTitle=false){
     const items = section.items || [];
     const wide = items.length > 7 || ['Observações','Fluxo operacional','Portabilidade MÚLTIPLA','Ponto de Atenção'].includes(section.title);
+    const title = hideTitle ? '' : `<div class="detail-card-title"><span class="section-icon">${sectionIcon(section.title)}</span><h3>${esc(section.title)}</h3></div>`;
     return `<section class="detail-card ${section.alert?'alert':''} ${wide?'wide':''} ${extraClass}">
-      <div class="detail-card-title"><span class="section-icon">${sectionIcon(section.title)}</span><h3>${esc(section.title)}</h3></div>
+      ${title}
       ${sectionBody(section)}
     </section>`;
   }
@@ -223,7 +224,7 @@
     if(benefits.length) groups.push({title:'Benefícios e elegibilidade',subtitle:'Condições de atendimento, benefícios e restrições de público.',icon:'✓',html:`<div class="rules-card-grid benefits-grid">${benefits.map(s=>makeRuleCard(s)).join('')}</div>`});
     if(operation.length) groups.push({title:'Regras da operação',subtitle:'Condições específicas do produto e, quando aplicável, da portabilidade.',icon:'↔',html:`<div class="rules-card-grid operation-grid">${operation.map(s=>makeRuleCard(s)).join('')}</div>`});
     if(payment.length) groups.push({title:'Pagamento e validações',subtitle:'Canais de pagamento, contas e validações operacionais.',icon:'▣',html:`<div class="rules-card-grid payment-grid">${payment.map(s=>makeRuleCard(s)).join('')}</div>`});
-    if(notes.length) groups.push({title:'Observações',subtitle:'Informações complementares e pontos operacionais relevantes.',icon:'i',html:`<div class="rules-card-grid notes-grid">${notes.map(s=>makeRuleCard(s)).join('')}</div>`});
+    if(notes.length) groups.push({title:'Observações',subtitle:'Informações complementares e pontos operacionais relevantes.',icon:'i',html:`<div class="rules-card-grid notes-grid">${notes.map(s=>makeRuleCard(s,'',normalize(s.title)==='observacoes')).join('')}</div>`});
     if(other.length) groups.push({title:'Outras regras',subtitle:'Demais informações cadastradas para este produto.',icon:'▤',html:`<div class="rules-card-grid">${other.map(s=>makeRuleCard(s)).join('')}</div>`});
 
     return groups.map(g=>`<section class="rule-group"><div class="rule-group-heading"><span class="group-icon">${g.icon}</span><div><h2>${esc(g.title)}</h2><p>${esc(g.subtitle)}</p></div></div>${g.html}</section>`).join('');
