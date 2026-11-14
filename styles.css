@@ -171,7 +171,7 @@ body{background:linear-gradient(180deg,#f8faff 0,#f4f7fb 420px,#f5f7fb 100%)}
 .modern-header .page-lead{font-size:15px;margin-top:9px}
 
 .quick-summary{
-  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;
   margin:0 0 34px
 }
 .summary-tile{
