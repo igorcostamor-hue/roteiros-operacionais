@@ -167,10 +167,8 @@
   }
 
   function renderHighlights(product, sections){
-    const age = getSection(sections,'Limite de idade');
     const minima = sections.find(s => normalize(s.title).startsWith('valor minimo'));
     const loas = getSection(sections,'LOAS');
-    const filled = sections.filter(s => (s.items || []).length).length;
     const loasValue = loas?.items?.length ? itemText(loas.items[0]) : 'Sem informação';
     const minValue = minima?.items?.length ? itemText(minima.items[0]) : 'Sem informação';
     const highlights = [
