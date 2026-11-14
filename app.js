@@ -120,30 +120,136 @@
     els.content.innerHTML = `<div class="empty-state"><div class="empty-icon">＋</div><div class="eyebrow">${esc(agreement.name)}</div><h1>Convênio preparado para receber conteúdo</h1><p>Ainda não há prints cadastrados para este convênio. Quando os próximos materiais forem enviados, os produtos e bancos entrarão neste menu.</p></div>`;
   }
 
+  function itemText(item){
+    return typeof item === 'object' ? item.text : item;
+  }
+
+  function sectionBody(section, compact=false){
+    const items = section.items || [];
+    if(!items.length){
+      return `<div class="${compact?'compact-empty':'empty-rule-value'}">${compact?'Sem informação':'—'}</div>`;
+    }
+    return `<ul class="rule-list ${compact?'compact-list':''}">${items.map(item=>{
+      const value = itemText(item);
+      const status = typeof item === 'object' ? item.status : null;
+      const icon = status === 'yes'
+        ? '<span class="status-icon yes" aria-label="Sim">✓</span>'
+        : status === 'no'
+          ? '<span class="status-icon no" aria-label="Não">✕</span>'
+          : '';
+      return `<li class="${section.alert?'danger-text':''} ${status?'status-line':''}">${icon}<span>${esc(value)}</span></li>`;
+    }).join('')}</ul>`;
+  }
+
+  function sectionIcon(title=''){
+    const t = normalize(title);
+    if(t.includes('idade') || t.includes('prazo')) return '◷';
+    if(t.includes('valor') || t.includes('margem')) return 'R$';
+    if(t.includes('invalidez') || t.includes('loas') || t.includes('pension')) return '✓';
+    if(t.includes('iletrado') || t.includes('assinar')) return '✎';
+    if(t.includes('conta') || t.includes('pagamento')) return '▣';
+    if(t.includes('porta') || t.includes('acordo') || t.includes('banco')) return '↔';
+    if(t.includes('srcc') || t.includes('perturbe')) return '✓';
+    return 'i';
+  }
+
+  function makeRuleCard(section, extraClass=''){
+    const items = section.items || [];
+    const wide = items.length > 7 || ['Observações','Fluxo operacional','Portabilidade MÚLTIPLA','Ponto de Atenção'].includes(section.title);
+    return `<section class="detail-card ${section.alert?'alert':''} ${wide?'wide':''} ${extraClass}">
+      <div class="detail-card-title"><span class="section-icon">${sectionIcon(section.title)}</span><h3>${esc(section.title)}</h3></div>
+      ${sectionBody(section)}
+    </section>`;
+  }
+
+  function getSection(sections, title){
+    return sections.find(s => normalize(s.title) === normalize(title));
+  }
+
+  function renderHighlights(product, sections){
+    const age = getSection(sections,'Limite de idade');
+    const minima = sections.find(s => normalize(s.title).startsWith('valor minimo'));
+    const loas = getSection(sections,'LOAS');
+    const filled = sections.filter(s => (s.items || []).length).length;
+    const loasValue = loas?.items?.length ? itemText(loas.items[0]) : 'Sem informação';
+    const minValue = minima?.items?.length ? itemText(minima.items[0]) : 'Sem informação';
+    const highlights = [
+      {label:'Limites cadastrados',value:age?.items?.length ? `${age.items.length} regra(s)` : 'Sem informação',icon:'◷'},
+      {label:minima?.title || 'Valores mínimos',value:minValue,icon:'R$'},
+      {label:'LOAS',value:loasValue,icon:'✓',status:loas?.items?.[0]?.status || null},
+      {label:'Regras preenchidas',value:`${filled} de ${sections.length}`,icon:'▤'}
+    ];
+    return `<div class="quick-summary">${highlights.map(h=>`<div class="summary-tile ${h.status?'status-'+h.status:''}">
+      <span class="summary-icon">${h.icon}</span>
+      <div class="summary-copy"><span class="summary-label">${esc(h.label)}</span><strong title="${esc(h.value)}">${esc(h.value)}</strong></div>
+    </div>`).join('')}</div>`;
+  }
+
+  function renderRuleGroups(sections){
+    const used = new Set();
+    const take = predicate => sections.filter((s,i)=>{
+      if(used.has(i) || !predicate(s)) return false;
+      used.add(i); return true;
+    });
+
+    const limits = take(s => {
+      const t=normalize(s.title);
+      return t==='limite de idade' || t.startsWith('valor minimo');
+    });
+    const benefits = take(s => {
+      const t=normalize(s.title);
+      return t.includes('invalidez') || t==='loas' || t.includes('pensionista') || t.includes('iletrado') || t.includes('impossibilitado');
+    });
+    const operation = take(s => {
+      const t=normalize(s.title);
+      return t.includes('margem negativa') || t.includes('agregar margem') || t==='nao porta' || t==='acordos' || t==='outros bancos' || t==='demais bancos' || t.includes('portabilidade multipla');
+    });
+    const payment = take(s => {
+      const t=normalize(s.title);
+      return t.includes('contas digitais') || t.includes('ordem de pagamento') || t.includes('nao me perturbe') || t==='srcc';
+    });
+    const notes = take(s => {
+      const t=normalize(s.title);
+      return t.includes('observacoes') || t.includes('fluxo') || t.includes('ponto de atencao');
+    });
+    const other = take(()=>true);
+
+    const groups=[];
+    if(limits.length){
+      const age=limits.find(s=>normalize(s.title)==='limite de idade');
+      const values=limits.filter(s=>s!==age);
+      let html='<div class="rules-feature-grid">';
+      if(age) html+=makeRuleCard(age,'age-detail');
+      if(values.length){
+        html+=`<section class="detail-card compact-stack-card"><div class="detail-card-title"><span class="section-icon">R$</span><h3>Valores mínimos</h3></div><div class="compact-stack">${values.map(s=>`<div class="compact-rule-row"><div><strong>${esc(s.title)}</strong></div><div class="compact-rule-value">${sectionBody(s,true)}</div></div>`).join('')}</div></section>`;
+      }
+      html+='</div>';
+      groups.push({title:'Limites e valores',subtitle:'Faixas, valores e condições financeiras da operação.',icon:'◷',html});
+    }
+    if(benefits.length) groups.push({title:'Benefícios e elegibilidade',subtitle:'Condições de atendimento, benefícios e restrições de público.',icon:'✓',html:`<div class="rules-card-grid benefits-grid">${benefits.map(s=>makeRuleCard(s)).join('')}</div>`});
+    if(operation.length) groups.push({title:'Regras da operação',subtitle:'Condições específicas do produto e, quando aplicável, da portabilidade.',icon:'↔',html:`<div class="rules-card-grid operation-grid">${operation.map(s=>makeRuleCard(s)).join('')}</div>`});
+    if(payment.length) groups.push({title:'Pagamento e validações',subtitle:'Canais de pagamento, contas e validações operacionais.',icon:'▣',html:`<div class="rules-card-grid payment-grid">${payment.map(s=>makeRuleCard(s)).join('')}</div>`});
+    if(notes.length) groups.push({title:'Observações',subtitle:'Informações complementares e pontos operacionais relevantes.',icon:'i',html:`<div class="rules-card-grid notes-grid">${notes.map(s=>makeRuleCard(s)).join('')}</div>`});
+    if(other.length) groups.push({title:'Outras regras',subtitle:'Demais informações cadastradas para este produto.',icon:'▤',html:`<div class="rules-card-grid">${other.map(s=>makeRuleCard(s)).join('')}</div>`});
+
+    return groups.map(g=>`<section class="rule-group"><div class="rule-group-heading"><span class="group-icon">${g.icon}</span><div><h2>${esc(g.title)}</h2><p>${esc(g.subtitle)}</p></div></div>${g.html}</section>`).join('');
+  }
+
   function renderBankPage(agreement, product, bank){
     if (!bank.sections || !bank.sections.length) {
       els.content.innerHTML = `<div class="page-shell">
         <div class="breadcrumb"><strong>${esc(agreement.name)}</strong><span class="sep">›</span><strong>${esc(product.name)}</strong><span class="sep">›</span><span>${esc(bank.name)}</span></div>
-        <div class="page-header"><div><div class="eyebrow">${esc(product.name)} • ${esc(agreement.name)}</div><h1>${esc(bank.name)}</h1><div class="page-lead">Regras apagadas. Estrutura ainda não definida para este produto.</div></div></div>
+        <div class="page-header modern-header"><div><div class="product-badge">${esc(product.name)}</div><h1>${esc(bank.name)}</h1><div class="page-lead">Estrutura ainda não definida para este produto.</div></div></div>
         <div class="empty-product-rules">Nenhum campo de regra foi criado para este produto por enquanto.</div>
       </div>`;
       return;
     }
-    const cards = bank.sections.map(section => {
-      const items = section.items || [];
-      const body = items.length ? `<ul class="rule-list">${items.map(item=>{
-        const value = typeof item === 'object' ? item.text : item;
-        const status = typeof item === 'object' ? item.status : null;
-        const icon = status === 'yes' ? '<span class="status-icon yes" aria-label="Sim">✓</span>' : status === 'no' ? '<span class="status-icon no" aria-label="Não">✕</span>' : '';
-        return `<li class="${section.alert?'danger-text':''} ${status?'status-line':''}">${icon}<span>${esc(value)}</span></li>`;
-      }).join('')}</ul>` : `<div class="empty-rule-value">—</div>`;
-      const full = !!section.full || (['Fluxo operacional','Portabilidade MÚLTIPLA','Não Porta','Acordos','Demais Bancos','Ponto de Atenção'].includes(section.title) && items.length > 3);
-      return `<section class="rule-card ${section.alert?'alert':''} ${full?'full':''}"><h2>${esc(section.title)}</h2>${body}</section>`;
-    }).join('');
-    els.content.innerHTML = `<div class="page-shell">
+    const sections=bank.sections;
+    els.content.innerHTML = `<div class="page-shell modern-bank-page">
       <div class="breadcrumb"><strong>${esc(agreement.name)}</strong><span class="sep">›</span><strong>${esc(product.name)}</strong><span class="sep">›</span><span>${esc(bank.name)}</span></div>
-      <div class="page-header"><div><div class="eyebrow">${esc(product.name)} • ${esc(agreement.name)}</div><h1>${esc(bank.name)}</h1><div class="page-lead">${esc(bank.title)}</div></div></div>
-      <div class="rule-grid">${cards}</div>
+      <div class="page-header modern-header"><div><div class="title-line"><h1>${esc(bank.name)}</h1><span class="product-badge">${esc(product.name)}</span></div><div class="page-lead">${esc(bank.title)}</div></div></div>
+      ${renderHighlights(product,sections)}
+      <div class="rule-groups">${renderRuleGroups(sections)}</div>
     </div>`;
   }
 
