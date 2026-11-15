@@ -170,12 +170,192 @@
   function renderHighlights(product, sections){
     const minima = sections.find(s => normalize(s.title).startsWith('valor minimo'));
     const loas = getSection(sections,'LOAS');
-    const loasValue = loas?.items?.length ? itemText(loas.items[0]) : 'Sem informação';
     const minValue = minima?.items?.length ? itemText(minima.items[0]) : 'Sem informação';
     const highlights = [
-      {label:minima?.title || 'Valores mínimos',value:minValue,icon:'R$'},
-      {label:'LOAS',value:loasValue,icon:'✓',status:loas?.items?.[0]?.status || null}
+      {label:minima?.title || 'Valores mínimos',value:minValue,icon:'R
+
+  function renderRuleGroups(sections){
+    const used = new Set();
+    const take = predicate => sections.filter((s,i)=>{
+      if(used.has(i) || !predicate(s)) return false;
+      used.add(i); return true;
+    });
+
+    const limits = take(s => {
+      const t=normalize(s.title);
+      return t==='limite de idade' || t.startsWith('valor minimo');
+    });
+    const benefits = take(s => {
+      const t=normalize(s.title);
+      return t.includes('invalidez') || t==='loas' || t.includes('pensionista') || t.includes('iletrado') || t.includes('impossibilitado');
+    });
+    const operation = take(s => {
+      const t=normalize(s.title);
+      return t.includes('margem negativa') || t.includes('agregar margem') || t==='nao porta' || t==='acordos' || t==='outros bancos' || t==='demais bancos' || t.includes('portabilidade multipla');
+    });
+    const payment = take(s => {
+      const t=normalize(s.title);
+      return t.includes('contas digitais') || t.includes('ordem de pagamento') || t.includes('nao me perturbe') || t==='srcc';
+    });
+    const notes = take(s => {
+      const t=normalize(s.title);
+      return t.includes('observacoes') || t.includes('fluxo') || t.includes('ponto de atencao');
+    });
+    const other = take(()=>true);
+
+    const groups=[];
+    if(limits.length){
+      const age=limits.find(s=>normalize(s.title)==='limite de idade');
+      const values=limits.filter(s=>s!==age);
+      let html='<div class="rules-feature-grid">';
+      if(age) html+=makeRuleCard(age,'age-detail');
+      if(values.length){
+        html+=`<section class="detail-card compact-stack-card"><div class="detail-card-title"><span class="section-icon">R$</span><h3>Valores mínimos</h3></div><div class="compact-stack">${values.map(s=>`<div class="compact-rule-row"><div><strong>${esc(s.title)}</strong></div><div class="compact-rule-value">${sectionBody(s,true)}</div></div>`).join('')}</div></section>`;
+      }
+      html+='</div>';
+      groups.push({title:'Limites e valores',subtitle:'Faixas, valores e condições financeiras da operação.',icon:'◷',html});
+    }
+    if(benefits.length) groups.push({title:'Benefícios e elegibilidade',subtitle:'Condições de atendimento, benefícios e restrições de público.',icon:'✓',html:`<div class="rules-card-grid benefits-grid">${benefits.map(s=>makeRuleCard(s)).join('')}</div>`});
+    if(operation.length) groups.push({title:'Regras da operação',subtitle:'Condições específicas do produto e, quando aplicável, da portabilidade.',icon:'↔',html:`<div class="rules-card-grid operation-grid">${operation.map(s=>makeRuleCard(s)).join('')}</div>`});
+    if(payment.length) groups.push({title:'Pagamento e validações',subtitle:'Canais de pagamento, contas e validações operacionais.',icon:'▣',html:`<div class="rules-card-grid payment-grid">${payment.map(s=>makeRuleCard(s)).join('')}</div>`});
+    if(notes.length) groups.push({title:'Observações',subtitle:'Informações complementares e pontos operacionais relevantes.',icon:'i',html:`<div class="rules-card-grid notes-grid">${notes.map(s=>makeRuleCard(s,'',normalize(s.title)==='observacoes')).join('')}</div>`});
+    if(other.length) groups.push({title:'Outras regras',subtitle:'Demais informações cadastradas para este produto.',icon:'▤',html:`<div class="rules-card-grid">${other.map(s=>makeRuleCard(s)).join('')}</div>`});
+
+    return groups.map(g=>`<section class="rule-group"><div class="rule-group-heading"><span class="group-icon">${g.icon}</span><div><h2>${esc(g.title)}</h2><p>${esc(g.subtitle)}</p></div></div>${g.html}</section>`).join('');
+  }
+
+  function renderBankPage(agreement, product, bank){
+    if (!bank.sections || !bank.sections.length) {
+      els.content.innerHTML = `<div class="page-shell">
+        <div class="breadcrumb"><strong>${esc(agreement.name)}</strong><span class="sep">›</span><strong>${esc(product.name)}</strong><span class="sep">›</span><span>${esc(bank.name)}</span></div>
+        <div class="page-header modern-header"><div><div class="product-badge">${esc(product.name)}</div><h1>${esc(bank.name)}</h1><div class="page-lead">Estrutura ainda não definida para este produto.</div></div></div>
+        <div class="empty-product-rules">Nenhum campo de regra foi criado para este produto por enquanto.</div>
+      </div>`;
+      return;
+    }
+    const sections=bank.sections;
+    els.content.innerHTML = `<div class="page-shell modern-bank-page">
+      <div class="breadcrumb"><strong>${esc(agreement.name)}</strong><span class="sep">›</span><strong>${esc(product.name)}</strong><span class="sep">›</span><span>${esc(bank.name)}</span></div>
+      <div class="page-header modern-header"><div><div class="title-line"><h1>${esc(bank.name)}</h1><span class="product-badge">${esc(product.name)}</span></div><div class="page-lead">${esc(bank.title)}</div></div></div>
+      ${renderHighlights(product,sections)}
+      <div class="rule-groups">${renderRuleGroups(sections)}</div>
+    </div>`;
+  }
+
+  function renderContent(){
+    const agreement = getAgreement();
+    if (!agreement){ renderHome(); return; }
+    if (!state.productId || !state.bankId){
+      if (agreement.products.length) renderAgreementLanding(agreement); else renderEmptyAgreement(agreement);
+      return;
+    }
+    const product = getProduct(agreement);
+    const bank = getBank(product);
+    if (!product || !bank){ renderAgreementLanding(agreement); return; }
+    renderBankPage(agreement, product, bank);
+  }
+
+  function renderAgreementLanding(agreement){
+    if (!agreement.products.length){ renderEmptyAgreement(agreement); return; }
+    els.content.innerHTML = `<div class="page-shell"><div class="eyebrow">Convênio</div><h1>${esc(agreement.name)}</h1><p class="page-lead">Escolha um produto e um banco no menu lateral, ou use a busca no topo.</p><div class="agreement-cards" style="margin-top:28px">${agreement.products.map(p=>`<button class="agreement-card" data-product-card="${esc(p.id)}"><div class="name">${esc(p.name)}</div><div class="meta">${p.banks.length} banco(s)</div></button>`).join('')}</div></div>`;
+    els.content.querySelectorAll('[data-product-card]').forEach(btn=>btn.addEventListener('click',()=>{
+      const p = agreement.products.find(x=>x.id===btn.dataset.productCard);
+      if(p?.banks?.length){ state.productId=p.id; state.bankId=p.banks[0].id; updateHash(); renderProductNav(); renderContent(); }
+    }));
+  }
+
+  function selectAgreement(id){
+    state.agreementId = id;
+    state.productId = null;
+    state.bankId = null;
+    updateHash();
+    renderAgreementNav();
+    renderProductNav();
+    renderContent();
+    clearSearch();
+    closeSidebarOnMobile();
+  }
+
+  function updateHash(){
+    const parts = [state.agreementId, state.productId, state.bankId].filter(Boolean);
+    history.replaceState(null,'','#'+parts.join('/'));
+  }
+
+  function readHash(){
+    const raw = location.hash.replace(/^#/,'');
+    if(!raw) return;
+    const [a,p,b] = raw.split('/');
+    if(data.agreements.some(x=>x.id===a)) state.agreementId=a;
+    const ag = getAgreement();
+    if(p && ag?.products.some(x=>x.id===p)) state.productId=p;
+    const prod = getProduct(ag);
+    if(b && prod?.banks.some(x=>x.id===b)) state.bankId=b;
+  }
+
+  function snippet(text, query){
+    const ntext = normalize(text); const nq = normalize(query); const idx = ntext.indexOf(nq);
+    if(idx < 0) return text.slice(0,160);
+    const start = Math.max(0, idx-55); const end = Math.min(text.length, idx+query.length+100);
+    return (start?'…':'') + text.slice(start,end) + (end<text.length?'…':'');
+  }
+
+  function highlight(text, query){
+    const safe = esc(text); if(!query) return safe;
+    try {
+      const re = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'ig');
+      return safe.replace(re, m=>`<span class="highlight">${m}</span>`);
+    } catch { return safe; }
+  }
+
+  function handleSearch(){
+    const q = els.search.value.trim();
+    if(!q){ clearSearch(); return; }
+    const nq = normalize(q);
+    const matches = state.searchIndex.filter(x=>x.normalized.includes(nq)).slice(0,30);
+    els.searchResults.classList.remove('hidden');
+    els.searchResults.innerHTML = `<div class="search-results-header">${matches.length} resultado(s) para “${esc(q)}”</div>${matches.length ? matches.map((m,i)=>`<button class="search-result-item" data-result="${i}"><div class="search-result-title">${highlight(m.title,q)}</div><div class="search-result-path">${esc(m.path)}</div><div class="search-result-snippet">${highlight(snippet(m.text,q),q)}</div></button>`).join('') : `<div style="padding:18px;color:#667085">Nenhuma regra encontrada.</div>`}`;
+    els.searchResults.querySelectorAll('[data-result]').forEach(btn=>btn.addEventListener('click',()=>{
+      const m=matches[Number(btn.dataset.result)];
+      state.agreementId=m.agreementId;state.productId=m.productId;state.bankId=m.bankId;
+      updateHash();renderAgreementNav();renderProductNav();renderContent();clearSearch();
+      window.scrollTo({top:0,behavior:'smooth'});
+    }));
+  }
+
+  function clearSearch(){
+    els.searchResults.classList.add('hidden');
+    els.searchResults.innerHTML='';
+  }
+
+  function closeSidebarOnMobile(){
+    els.sidebar.classList.remove('open');
+    els.sidebarScrim.classList.remove('show');
+  }
+
+  els.menuButton.addEventListener('click',()=>{
+    els.sidebar.classList.toggle('open');
+    els.sidebarScrim.classList.toggle('show');
+  });
+  els.sidebarScrim.addEventListener('click',closeSidebarOnMobile);
+  els.search.addEventListener('input',handleSearch);
+  els.search.addEventListener('keydown',e=>{ if(e.key==='Escape'){els.search.value='';clearSearch();els.search.blur();} });
+  document.addEventListener('keydown',e=>{
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){
+      e.preventDefault();els.search.focus();els.search.select();
+    }
+  });
+
+  readHash();
+  buildSearchIndex();
+  renderAgreementNav();
+  renderProductNav();
+  renderContent();
+})();}
     ];
+    if(loas){
+      const loasValue = loas.items?.length ? itemText(loas.items[0]) : 'Sem informação';
+      highlights.push({label:'LOAS',value:loasValue,icon:'✓',status:loas.items?.[0]?.status || null});
+    }
     return `<div class="quick-summary">${highlights.map(h=>`<div class="summary-tile ${h.status?'status-'+h.status:''}">
       <span class="summary-icon">${h.icon}</span>
       <div class="summary-copy"><span class="summary-label">${esc(h.label)}</span><strong title="${esc(h.value)}">${esc(h.value)}</strong></div>
